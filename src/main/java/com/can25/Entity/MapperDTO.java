@@ -21,6 +21,44 @@ import java.time.format.DateTimeParseException;
 public class MapperDTO {
 
 
+    public SpectatorDTO toDTO(Spectator spectator) {
+
+        if (spectator == null) return null;
+
+        return SpectatorDTO.builder()
+                .spectatorId(spectator.getSpectatorId())
+                .age(spectator.getAge())
+                .nationality(spectator.getNationality())
+                .matchId(spectator.getMatchId())
+                .entryTime(parseLocalDateTime(spectator.getEntryTime()))
+                .gate(spectator.getGate())
+                .ticketNumber(spectator.getTicketNumber())
+                .ticketType(spectator.getTicketType())
+                .seatLocation(copySeatLocation(spectator.getSeatLocation()))
+                .category(spectator.getCategory())
+                .totalMatches(spectator.getTotalMatches())
+                .build();
+    }
+
+
+    public Spectator toEntity(SpectatorDTO dto) {
+
+        if (dto == null) return null;
+
+        return Spectator.builder()
+                .spectatorId(dto.getSpectatorId())
+                .age(dto.getAge())
+                .nationality(dto.getNationality())
+                .matchId(dto.getMatchId())
+                .entryTime(dto.getEntryTime() != null ? dto.getEntryTime().toString() : null)
+                .gate(dto.getGate())
+                .ticketNumber(dto.getTicketNumber())
+                .ticketType(dto.getTicketType())
+                .seatLocation(copySeatLocation(dto.getSeatLocation()))
+                .category(dto.getCategory())
+                .totalMatches(dto.getTotalMatches())
+                .build();
+    }
 
     private LocalDateTime parseLocalDateTime(String value) {
         if (value == null) return null;
