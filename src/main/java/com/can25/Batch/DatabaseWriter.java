@@ -23,19 +23,27 @@ public class DatabaseWriter implements ItemWriter<SpectatorDTO> {
     private final MatchEntryRepository matchEntryRepository;
     private final SpectatorStatisticsRepository spectatorStatisticsRepository;
 
+    /**
+     * WRITER LOGIC
+     * Using @Transactional ensures that for each chunk (e.g., 10 items), either ALL
+     * updates succeed
+     * or NONE do. If an error happens midway, the data is rolled back.
+     */
     @Override
     @Transactional
     public void write(Chunk<? extends SpectatorDTO> chunk) throws Exception {
 
         for (SpectatorDTO dto : chunk) {
 
-            // ----- 1. VERIFICATION ET MISE A JOUR DU SPECTATEUR -----
-            // Vérifier si le spectateur existe déjà
+            // ----- 1. VERIFICATION ET MISE A JOUR DU SPECTATEUR (Entity: Spectator) -----
+            // We check if we already know this spectator.
+            // If yes -> Update their stats.
+            // If no -> Create a new Spectator record.
             Optional<Spectator> existingSpectatorOpt = spectatorRepository.findById(dto.getSpectatorId());
             Spectator currentSpectator;
 
             if (existingSpectatorOpt.isEmpty()) {
-                // Nouveau spectateur : on le persiste
+                // NEW SPECTATOR
                 Spectator newSpectator = Spectator.builder()
                         .spectatorId(dto.getSpectatorId())
                         .age(dto.getAge())
@@ -46,7 +54,7 @@ public class DatabaseWriter implements ItemWriter<SpectatorDTO> {
 
                 currentSpectator = spectatorRepository.save(newSpectator);
             } else {
-                // Spectateur existant : on met à jour
+                // EXISTING SPECTATOR (Update info)
                 currentSpectator = existingSpectatorOpt.get();
                 currentSpectator.setTotalMatches(dto.getTotalMatches());
                 currentSpectator.setCategory(dto.getCategory());
@@ -54,9 +62,10 @@ public class DatabaseWriter implements ItemWriter<SpectatorDTO> {
                 currentSpectator = spectatorRepository.save(currentSpectator);
             }
 
-            // ----- 2. CREATION DE L'ENTREE AU MATCH -----
+            // ----- 2. creation DE L'ENTREE AU MATCH (Entity: MatchEntry) -----
+            // This table logs the specific event: "Spectator X entered Match Y at Time Z"
             MatchEntry entry = MatchEntry.builder()
-                    .spectator(currentSpectator) // Relation established
+                    .spectator(currentSpectator) // Link to the parent Spectator entity
                     .matchId(dto.getMatchId())
                     .entryTime(dto.getEntryTime())
                     .gate(dto.getGate())
@@ -67,20 +76,20 @@ public class DatabaseWriter implements ItemWriter<SpectatorDTO> {
 
             matchEntryRepository.save(entry);
 
-            // ----- 3. MISE A JOUR DES STATISTIQUES -----
-            // Vérifier si des stats existent pour ce spectateur
+            // ----- 3. MISE A JOUR DES STATISTIQUES (Entity: SpectatorStatistics) -----
+            // Maintain a separate summary table for easy reporting
             Optional<SpectatorStatistics> statsOpt = spectatorStatisticsRepository.findBySpectatorId(currentSpectator);
             SpectatorStatistics stats;
 
             if (statsOpt.isEmpty()) {
-                // Créer de nouvelles statistiques
+                // Create new stats record
                 stats = SpectatorStatistics.builder()
                         .spectatorId(currentSpectator)
                         .totalMatches(dto.getTotalMatches())
                         .behaviorCategory(dto.getCategory().name())
                         .build();
             } else {
-                // Mettre à jour les statistiques existantes
+                // Update existing stats
                 stats = statsOpt.get();
                 stats.setTotalMatches(dto.getTotalMatches());
                 stats.setBehaviorCategory(dto.getCategory().name());
