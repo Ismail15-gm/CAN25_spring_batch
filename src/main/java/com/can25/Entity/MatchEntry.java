@@ -19,7 +19,11 @@ public class MatchEntry {
     private Long id;
 
     private String matchId;
-    private String spectatorId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "spectator_id")
+    private Spectator spectator;
+
     private LocalDateTime entryTime;
     private String gate;
     private String ticketNumber;

@@ -1,17 +1,7 @@
-/*Param :
-*  spectatorId;
-   age;
-   nationality;
-   matchId;
-   entryTime;
-   gate;
-   ticketNumber;
-   ticketType;
-   seatLocation;
-   category;
-   totalMatches;
-* */package com.can25.Entity;
+package com.can25.Dto;
 
+import com.can25.Entity.SeatLocation;
+import com.can25.Entity.Spectator;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -20,48 +10,45 @@ import java.time.format.DateTimeParseException;
 @Component
 public class MapperDTO {
 
-
     public SpectatorDTO toDTO(Spectator spectator) {
 
-        if (spectator == null) return null;
+        if (spectator == null)
+            return null;
 
         return SpectatorDTO.builder()
                 .spectatorId(spectator.getSpectatorId())
                 .age(spectator.getAge())
                 .nationality(spectator.getNationality())
-                .matchId(spectator.getMatchId())
-                .entryTime(parseLocalDateTime(spectator.getEntryTime()))
-                .gate(spectator.getGate())
-                .ticketNumber(spectator.getTicketNumber())
-                .ticketType(spectator.getTicketType())
-                .seatLocation(copySeatLocation(spectator.getSeatLocation()))
+                // .matchId(spectator.getMatchId()) // Removed from Entity
+                // .entryTime(parseLocalDateTime(spectator.getEntryTime())) // Removed from
+                // Entity
+                // .gate(spectator.getGate()) // Removed from Entity
+                // .ticketNumber(spectator.getTicketNumber()) // Removed from Entity
+                // .ticketType(spectator.getTicketType()) // Removed from Entity
+                // .seatLocation(copySeatLocation(spectator.getSeatLocation())) // Removed from
+                // Entity
                 .category(spectator.getCategory())
                 .totalMatches(spectator.getTotalMatches())
                 .build();
     }
 
-
     public Spectator toEntity(SpectatorDTO dto) {
 
-        if (dto == null) return null;
+        if (dto == null)
+            return null;
 
         return Spectator.builder()
                 .spectatorId(dto.getSpectatorId())
                 .age(dto.getAge())
                 .nationality(dto.getNationality())
-                .matchId(dto.getMatchId())
-                .entryTime(dto.getEntryTime() != null ? dto.getEntryTime().toString() : null)
-                .gate(dto.getGate())
-                .ticketNumber(dto.getTicketNumber())
-                .ticketType(dto.getTicketType())
-                .seatLocation(copySeatLocation(dto.getSeatLocation()))
                 .category(dto.getCategory())
                 .totalMatches(dto.getTotalMatches())
                 .build();
     }
 
     private LocalDateTime parseLocalDateTime(String value) {
-        if (value == null) return null;
+        if (value == null)
+            return null;
 
         try {
             return LocalDateTime.parse(value);
@@ -76,7 +63,8 @@ public class MapperDTO {
     }
 
     private SeatLocation copySeatLocation(SeatLocation s) {
-        if (s == null) return null;
+        if (s == null)
+            return null;
 
         return SeatLocation.builder()
                 .tribune(s.getTribune())

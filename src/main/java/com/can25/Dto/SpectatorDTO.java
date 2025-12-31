@@ -1,4 +1,7 @@
-package com.can25.Entity;
+package com.can25.Dto;
+
+import com.can25.Entity.BehaviorCategory;
+import com.can25.Entity.SeatLocation;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,7 +13,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-
 public class SpectatorDTO {
     // Informations spectateur
     private String spectatorId;

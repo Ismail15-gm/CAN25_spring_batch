@@ -1,5 +1,6 @@
 package com.can25.Batch;
 
+import com.can25.Dto.SpectatorDTO;
 import com.can25.Entity.MatchEntry;
 import com.can25.Entity.Spectator;
 import com.can25.Entity.SpectatorStatistics;
@@ -12,12 +13,11 @@ import org.springframework.batch.item.ItemWriter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
-public class DatabaseWriter implements ItemWriter<Spectator> {
+public class DatabaseWriter implements ItemWriter<SpectatorDTO> {
 
     private final SpectatorRepository spectatorRepository;
     private final MatchEntryRepository matchEntryRepository;
@@ -25,46 +25,50 @@ public class DatabaseWriter implements ItemWriter<Spectator> {
 
     @Override
     @Transactional
-    public void write(Chunk<? extends Spectator> chunk) throws Exception {
+    public void write(Chunk<? extends SpectatorDTO> chunk) throws Exception {
 
-        for (Spectator spectator : chunk) {
+        for (SpectatorDTO dto : chunk) {
 
-
-            Optional<Spectator> existingSpectatorOpt = spectatorRepository.findById(spectator.getSpectatorId());
+            // ----- 1. VERIFICATION ET MISE A JOUR DU SPECTATEUR -----
+            // Vérifier si le spectateur existe déjà
+            Optional<Spectator> existingSpectatorOpt = spectatorRepository.findById(dto.getSpectatorId());
             Spectator currentSpectator;
 
             if (existingSpectatorOpt.isEmpty()) {
+                // Nouveau spectateur : on le persiste
                 Spectator newSpectator = Spectator.builder()
-                        .spectatorId(spectator.getSpectatorId())
-                        .age(spectator.getAge())
-                        .nationality(spectator.getNationality())
-                        .totalMatches(spectator.getTotalMatches())
-                        .category(spectator.getCategory())
+                        .spectatorId(dto.getSpectatorId())
+                        .age(dto.getAge())
+                        .nationality(dto.getNationality())
+                        .totalMatches(dto.getTotalMatches())
+                        .category(dto.getCategory())
                         .build();
 
                 currentSpectator = spectatorRepository.save(newSpectator);
             } else {
+                // Spectateur existant : on met à jour
                 currentSpectator = existingSpectatorOpt.get();
-                currentSpectator.setTotalMatches(spectator.getTotalMatches());
-                currentSpectator.setCategory(spectator.getCategory());
+                currentSpectator.setTotalMatches(dto.getTotalMatches());
+                currentSpectator.setCategory(dto.getCategory());
 
                 currentSpectator = spectatorRepository.save(currentSpectator);
             }
 
-
+            // ----- 2. CREATION DE L'ENTREE AU MATCH -----
             MatchEntry entry = MatchEntry.builder()
-                    .spectatorId(spectator.getSpectatorId())
-                    .matchId(spectator.getMatchId())
-                    .entryTime(LocalDateTime.parse(spectator.getEntryTime()))
-                    .gate(spectator.getGate())
-                    .ticketNumber(spectator.getTicketNumber())
-                    .ticketType(spectator.getTicketType())
-                    .seatLocation(spectator.getSeatLocation())
+                    .spectator(currentSpectator) // Relation established
+                    .matchId(dto.getMatchId())
+                    .entryTime(dto.getEntryTime())
+                    .gate(dto.getGate())
+                    .ticketNumber(dto.getTicketNumber())
+                    .ticketType(dto.getTicketType())
+                    .seatLocation(dto.getSeatLocation())
                     .build();
 
             matchEntryRepository.save(entry);
 
-
+            // ----- 3. MISE A JOUR DES STATISTIQUES -----
+            // Vérifier si des stats existent pour ce spectateur
             Optional<SpectatorStatistics> statsOpt = spectatorStatisticsRepository.findBySpectatorId(currentSpectator);
             SpectatorStatistics stats;
 
@@ -72,14 +76,14 @@ public class DatabaseWriter implements ItemWriter<Spectator> {
                 // Créer de nouvelles statistiques
                 stats = SpectatorStatistics.builder()
                         .spectatorId(currentSpectator)
-                        .totalMatches(spectator.getTotalMatches())
-                        .behaviorCategory(spectator.getCategory().name())
+                        .totalMatches(dto.getTotalMatches())
+                        .behaviorCategory(dto.getCategory().name())
                         .build();
             } else {
                 // Mettre à jour les statistiques existantes
                 stats = statsOpt.get();
-                stats.setTotalMatches(spectator.getTotalMatches());
-                stats.setBehaviorCategory(spectator.getCategory().name());
+                stats.setTotalMatches(dto.getTotalMatches());
+                stats.setBehaviorCategory(dto.getCategory().name());
             }
 
             spectatorStatisticsRepository.save(stats);

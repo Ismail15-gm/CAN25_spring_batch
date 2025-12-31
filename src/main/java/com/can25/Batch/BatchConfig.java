@@ -1,8 +1,7 @@
 package com.can25.Batch;
 
+import com.can25.Dto.SpectatorDTO;
 import com.can25.Entity.SeatLocation;
-import com.can25.Entity.Spectator;
-import com.can25.Entity.SpectatorDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -34,72 +33,68 @@ import java.util.Map;
 @Configuration
 public class BatchConfig {
 
-    @Bean
-    public JsonItemReader<SpectatorDTO> jsonItemReader() {
+        @Bean
+        public JsonItemReader<SpectatorDTO> jsonItemReader() {
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+                ObjectMapper objectMapper = new ObjectMapper();
+                objectMapper.registerModule(new JavaTimeModule());
+                objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        JacksonJsonObjectReader<SpectatorDTO> jsonObjectReader =
-                new JacksonJsonObjectReader<>(SpectatorDTO.class);
-        jsonObjectReader.setMapper(objectMapper);
+                JacksonJsonObjectReader<SpectatorDTO> jsonObjectReader = new JacksonJsonObjectReader<>(
+                                SpectatorDTO.class);
+                jsonObjectReader.setMapper(objectMapper);
 
-        return new JsonItemReaderBuilder<SpectatorDTO>()
-                .name("jsonSpectatorReader")
-                .jsonObjectReader(jsonObjectReader)
-                .resource(new ClassPathResource("spectators_json.json"))
-                .strict(false)
-                .build();
-    }
+                return new JsonItemReaderBuilder<SpectatorDTO>()
+                                .name("jsonSpectatorReader")
+                                .jsonObjectReader(jsonObjectReader)
+                                .resource(new ClassPathResource("spectators_json.json"))
+                                .strict(false)
+                                .build();
+        }
 
+        @Bean
+        public StaxEventItemReader<SpectatorDTO> xmlItemReader() {
 
-    @Bean
-    public StaxEventItemReader<SpectatorDTO> xmlItemReader() {
+                Map<String, Class<?>> aliases = new HashMap<>();
+                aliases.put("Spectator", SpectatorDTO.class);
+                aliases.put("seatLocation", SeatLocation.class);
 
-        Map<String, Class<?>> aliases = new HashMap<>();
-        aliases.put("Spectator", SpectatorDTO.class);
-        aliases.put("seatLocation", SeatLocation.class);
+                XStreamMarshaller marshaller = new XStreamMarshaller();
+                marshaller.setAliases(aliases);
 
-        XStreamMarshaller marshaller = new XStreamMarshaller();
-        marshaller.setAliases(aliases);
+                return new StaxEventItemReaderBuilder<SpectatorDTO>()
+                                .name("xmlSpectatorReader")
+                                .resource(new FileSystemResource("spectators_xml.xml"))
+                                .addFragmentRootElements("Spectator")
+                                .unmarshaller(marshaller)
+                                .build();
+        }
 
-        return new StaxEventItemReaderBuilder<SpectatorDTO>()
-                .name("xmlSpectatorReader")
-                .resource(new FileSystemResource("spectators_xml.xml"))
-                .addFragmentRootElements("Spectator")
-                .unmarshaller(marshaller)
-                .build();
-    }
+        @Bean
+        public Step spectatorStep(
+                        JobRepository jobRepository,
+                        PlatformTransactionManager transactionManager,
+                        @Qualifier("jsonItemReader") ItemReader<SpectatorDTO> reader,
+                        ItemProcessor<SpectatorDTO, SpectatorDTO> processor,
+                        DatabaseWriter writer) {
 
+                return new StepBuilder("spectatorStep", jobRepository)
+                                .<SpectatorDTO, SpectatorDTO>chunk(10, transactionManager)
+                                .reader(reader)
+                                .processor(processor)
+                                .writer(writer)
+                                .faultTolerant()
+                                .skip(Exception.class)
+                                .skipLimit(5)
+                                .build();
+        }
 
-    @Bean
-    public Step spectatorStep(
-            JobRepository jobRepository,
-            PlatformTransactionManager transactionManager,
-            @Qualifier("jsonItemReader") ItemReader<SpectatorDTO> reader,
-            ItemProcessor<SpectatorDTO, Spectator> processor,
-            DatabaseWriter writer) {  // ✅ Injection directe de DatabaseWriter
-
-        return new StepBuilder("spectatorStep", jobRepository)
-                .<SpectatorDTO, Spectator>chunk(10, transactionManager)
-                .reader(reader)
-                .processor(processor)
-                .writer(writer)  // ✅ writer est DatabaseWriter
-                .faultTolerant()
-                .skip(Exception.class)
-                .skipLimit(5)
-                .build();
-    }
-
-    @Bean
-    public Job spectatorJob(JobRepository jobRepository, Step spectatorStep) {
-        return new JobBuilder("spectatorJob", jobRepository)
-                .incrementer(new RunIdIncrementer())
-                .start(spectatorStep)
-                .build();
-    }
-
-    
+        @Bean
+        public Job spectatorJob(JobRepository jobRepository, Step spectatorStep) {
+                return new JobBuilder("spectatorJob", jobRepository)
+                                .incrementer(new RunIdIncrementer())
+                                .start(spectatorStep)
+                                .build();
+        }
 
 }

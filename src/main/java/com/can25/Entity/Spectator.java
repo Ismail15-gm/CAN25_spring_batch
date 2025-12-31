@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Data
 @AllArgsConstructor
@@ -24,24 +22,5 @@ public class Spectator {
     private BehaviorCategory category;
 
     private int totalMatches;
-
-    // Champs transitoires (non sauvegardés dans la table SPECTATORS)
-    @Transient
-    private String matchId;
-
-    @Transient
-    private String entryTime;
-
-    @Transient
-    private String gate;
-
-    @Transient
-    private String ticketNumber;
-
-    @Transient
-    private String ticketType;
-
-    @Transient
-    private SeatLocation seatLocation;
 
 }
