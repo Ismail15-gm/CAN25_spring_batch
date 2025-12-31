@@ -19,11 +19,10 @@ import org.springframework.batch.item.json.builder.JsonItemReaderBuilder;
 import org.springframework.batch.item.xml.StaxEventItemReader;
 import org.springframework.batch.item.xml.builder.StaxEventItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.FileSystemResource;
-
 import org.springframework.oxm.xstream.XStreamMarshaller;
 import org.springframework.transaction.PlatformTransactionManager;
 
@@ -33,9 +32,11 @@ import java.util.Map;
 @Configuration
 public class BatchConfig {
 
+        @Value("${source.type:json}")
+        private String sourceType;
+
         @Bean
         public JsonItemReader<SpectatorDTO> jsonItemReader() {
-
                 ObjectMapper objectMapper = new ObjectMapper();
                 objectMapper.registerModule(new JavaTimeModule());
                 objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -54,27 +55,36 @@ public class BatchConfig {
 
         @Bean
         public StaxEventItemReader<SpectatorDTO> xmlItemReader() {
-
                 Map<String, Class<?>> aliases = new HashMap<>();
-                aliases.put("Spectator", SpectatorDTO.class);
+                aliases.put("spectatorEntry", SpectatorDTO.class);
                 aliases.put("seatLocation", SeatLocation.class);
 
                 XStreamMarshaller marshaller = new XStreamMarshaller();
                 marshaller.setAliases(aliases);
 
+                // Allow security for XStream
+                marshaller.getXStream().allowTypes(new Class[] { SpectatorDTO.class, SeatLocation.class });
+
                 return new StaxEventItemReaderBuilder<SpectatorDTO>()
                                 .name("xmlSpectatorReader")
-                                .resource(new FileSystemResource("spectators_xml.xml"))
-                                .addFragmentRootElements("Spectator")
+                                .resource(new ClassPathResource("spectators_xml.xml"))
+                                .addFragmentRootElements("spectatorEntry")
                                 .unmarshaller(marshaller)
                                 .build();
+        }
+
+        @Bean
+        public MainItemReader mainItemReader(
+                        @Qualifier("jsonItemReader") ItemReader<SpectatorDTO> jsonReader,
+                        @Qualifier("xmlItemReader") ItemReader<SpectatorDTO> xmlReader) {
+                return new MainItemReader(jsonReader, xmlReader, sourceType);
         }
 
         @Bean
         public Step spectatorStep(
                         JobRepository jobRepository,
                         PlatformTransactionManager transactionManager,
-                        @Qualifier("jsonItemReader") ItemReader<SpectatorDTO> reader,
+                        MainItemReader reader,
                         ItemProcessor<SpectatorDTO, SpectatorDTO> processor,
                         DatabaseWriter writer) {
 
@@ -96,5 +106,4 @@ public class BatchConfig {
                                 .start(spectatorStep)
                                 .build();
         }
-
 }
