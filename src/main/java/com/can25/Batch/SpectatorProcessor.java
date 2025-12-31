@@ -19,19 +19,17 @@ public class SpectatorProcessor implements ItemProcessor<SpectatorDTO, Spectator
     @Override
     public SpectatorDTO process(SpectatorDTO spectator) {
 
-        // ----- VALIDATION -----
         if (spectator.getSpectatorId() == null || spectator.getAge() <= 0) {
             return null;
         }
 
-        // ----- CALCUL DU NOMBRE DE MATCHS -----
         matchCount.put(
                 spectator.getSpectatorId(),
                 matchCount.getOrDefault(spectator.getSpectatorId(), 0) + 1);
         int totalMatches = matchCount.get(spectator.getSpectatorId());
         spectator.setTotalMatches(totalMatches);
 
-        // ----- CLASSIFICATION -----
+
         if (totalMatches == 1)
             spectator.setCategory(BehaviorCategory.PREMIERE_VISITE);
         else if (totalMatches <= 3)
@@ -41,7 +39,6 @@ public class SpectatorProcessor implements ItemProcessor<SpectatorDTO, Spectator
         else
             spectator.setCategory(BehaviorCategory.SUPER_FAN);
 
-        // We now return the DTO directly, enriched with processed info
         return spectator;
     }
 }

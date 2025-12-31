@@ -97,7 +97,6 @@ public class MainItemReader implements ItemReader<SpectatorDTO>, ItemStream {
 
     @Override
     public void update(ExecutionContext executionContext) throws ItemStreamException {
-        // delegate should be initialized by open()
         if (delegate instanceof ItemStream) {
             ((ItemStream) delegate).update(executionContext);
         }
