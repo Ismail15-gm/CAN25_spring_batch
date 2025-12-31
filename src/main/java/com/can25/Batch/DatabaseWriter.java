@@ -3,20 +3,25 @@ package com.can25.Batch;
 import com.can25.Entity.MatchEntry;
 import com.can25.Entity.Spectator;
 import com.can25.Entity.SpectatorStatistics;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.transaction.Transactional;
+import com.can25.Repository.MatchEntryRepository;
+import com.can25.Repository.SpectatorRepository;
+import com.can25.Repository.SpectatorStatisticsRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Component
+@RequiredArgsConstructor
 public class DatabaseWriter implements ItemWriter<Spectator> {
 
-    @PersistenceContext
-    private EntityManager em;
+    private final SpectatorRepository spectatorRepository;
+    private final MatchEntryRepository matchEntryRepository;
+    private final SpectatorStatisticsRepository spectatorStatisticsRepository;
 
     @Override
     @Transactional
@@ -24,12 +29,11 @@ public class DatabaseWriter implements ItemWriter<Spectator> {
 
         for (Spectator spectator : chunk) {
 
-            // ----- 1. VERIFICATION ET MISE A JOUR DU SPECTATEUR -----
-            // Vérifier si le spectateur existe déjà
-            Spectator existingSpectator = em.find(Spectator.class, spectator.getSpectatorId());
 
-            if (existingSpectator == null) {
-                // Nouveau spectateur : on le persiste
+            Optional<Spectator> existingSpectatorOpt = spectatorRepository.findById(spectator.getSpectatorId());
+            Spectator currentSpectator;
+
+            if (existingSpectatorOpt.isEmpty()) {
                 Spectator newSpectator = Spectator.builder()
                         .spectatorId(spectator.getSpectatorId())
                         .age(spectator.getAge())
@@ -38,19 +42,19 @@ public class DatabaseWriter implements ItemWriter<Spectator> {
                         .category(spectator.getCategory())
                         .build();
 
-                em.persist(newSpectator);
+                currentSpectator = spectatorRepository.save(newSpectator);
             } else {
-                // Spectateur existant : on met à jour
-                existingSpectator.setTotalMatches(spectator.getTotalMatches());
-                existingSpectator.setCategory(spectator.getCategory());
+                currentSpectator = existingSpectatorOpt.get();
+                currentSpectator.setTotalMatches(spectator.getTotalMatches());
+                currentSpectator.setCategory(spectator.getCategory());
 
-                em.merge(existingSpectator);
+                currentSpectator = spectatorRepository.save(currentSpectator);
             }
 
-            // ----- 2. CREATION DE L'ENTREE AU MATCH -----
+
             MatchEntry entry = MatchEntry.builder()
                     .spectatorId(spectator.getSpectatorId())
-                    .matchId(spectator.getMatchId())  // Depuis les champs @Transient
+                    .matchId(spectator.getMatchId())
                     .entryTime(LocalDateTime.parse(spectator.getEntryTime()))
                     .gate(spectator.getGate())
                     .ticketNumber(spectator.getTicketNumber())
@@ -58,35 +62,27 @@ public class DatabaseWriter implements ItemWriter<Spectator> {
                     .seatLocation(spectator.getSeatLocation())
                     .build();
 
-            em.persist(entry);
+            matchEntryRepository.save(entry);
 
-            // ----- 3. MISE A JOUR DES STATISTIQUES -----
-            // Vérifier si des stats existent pour ce spectateur
-            SpectatorStatistics stats = em.createQuery(
-                            "SELECT s FROM SpectatorStatistics s WHERE s.spectatorId.spectatorId = :spectatorId",
-                            SpectatorStatistics.class)
-                    .setParameter("spectatorId", spectator.getSpectatorId())
-                    .getResultStream()
-                    .findFirst()
-                    .orElse(null);
 
-            if (stats == null) {
+            Optional<SpectatorStatistics> statsOpt = spectatorStatisticsRepository.findBySpectatorId(currentSpectator);
+            SpectatorStatistics stats;
+
+            if (statsOpt.isEmpty()) {
                 // Créer de nouvelles statistiques
                 stats = SpectatorStatistics.builder()
-                        .spectatorId(existingSpectator) // A khoya azedinne ach hadchi
+                        .spectatorId(currentSpectator)
                         .totalMatches(spectator.getTotalMatches())
                         .behaviorCategory(spectator.getCategory().name())
                         .build();
-
-                em.persist(stats);
             } else {
                 // Mettre à jour les statistiques existantes
+                stats = statsOpt.get();
                 stats.setTotalMatches(spectator.getTotalMatches());
                 stats.setBehaviorCategory(spectator.getCategory().name());
-
-                em.merge(stats);
             }
+
+            spectatorStatisticsRepository.save(stats);
         }
     }
 }
-
