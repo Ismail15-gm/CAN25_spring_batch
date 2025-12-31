@@ -16,7 +16,7 @@
     }
   },
   {
-    "spectatorId": "SPX10002",
+    "spectatorId": "SPX10001",
     "matchId": "MCH03",
     "entryTime": "2025-07-10T20:53:25",
     "gate": "Gate C2",
@@ -32,7 +32,7 @@
     }
   },
   {
-    "spectatorId": "SPX10003",
+    "spectatorId": "SPX10001",
     "matchId": "MCH01",
     "entryTime": "2025-07-06T17:15:55",
     "gate": "Gate A2",
